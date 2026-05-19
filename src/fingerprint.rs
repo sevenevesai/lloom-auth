@@ -1,3 +1,4 @@
+#[cfg(windows)]
 use sha2::{Digest, Sha256};
 
 /// Generate a machine fingerprint: `sha256(MachineGuid || volume_serial)`.
@@ -69,11 +70,12 @@ fn read_volume_serial() -> Result<String, crate::Error> {
     ))
 }
 
+#[cfg(windows)]
 fn to_hex(bytes: &[u8]) -> String {
     bytes.iter().map(|b| format!("{b:02x}")).collect()
 }
 
-#[cfg(test)]
+#[cfg(all(test, windows))]
 mod tests {
     use super::*;
 
@@ -84,7 +86,6 @@ mod tests {
         assert_eq!(to_hex(&[0x00, 0xff]), "00ff");
     }
 
-    #[cfg(windows)]
     #[test]
     fn fingerprint_is_64_hex() {
         let fp = generate().expect("fingerprint should succeed on Windows");
@@ -92,7 +93,6 @@ mod tests {
         assert!(fp.chars().all(|c| c.is_ascii_hexdigit()));
     }
 
-    #[cfg(windows)]
     #[test]
     fn fingerprint_is_deterministic() {
         let a = generate().unwrap();
