@@ -1,0 +1,28 @@
+[package]
+name = "lloom-auth"
+version = "0.1.0"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+description = "License activation client for the Lloom desktop app: machine fingerprint, API client, local activation cache."
+repository = "https://github.com/sevenevesai/lloom-auth"
+homepage = "https://seveneves.ai/crates"
+readme = "README.md"
+keywords = ["licensing", "activation", "fingerprint", "desktop-app"]
+categories = ["authentication"]
+
+[dependencies]
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sha2 = "0.10"
+tokio = { version = "1", features = ["fs"] }
+chrono = { version = "0.4", features = ["serde"] }
+thiserror = "2"
+tracing = "0.1"
+
+[target.'cfg(windows)'.dependencies]
+winreg = "0.55"
+
+[dev-dependencies]
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "fs"] }
+tempfile = "3"
