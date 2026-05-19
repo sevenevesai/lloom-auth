@@ -1,3 +1,21 @@
+//! License activation client for desktop apps.
+//!
+//! Async client for a JSON license API that follows the
+//! activate / validate / deactivate / trial-register pattern, plus a
+//! Windows machine fingerprint and a file-backed offline cache. Designed
+//! for Tauri apps but has no GUI coupling — just `reqwest` + `tokio` +
+//! `serde`.
+//!
+//! [`LicenseManager`] is the entry point. Construct one at startup with
+//! the API base URL, a cache file path, and the app version; call
+//! [`LicenseManager::status`] for the offline decision and
+//! [`LicenseManager::activate`] / [`LicenseManager::validate`] /
+//! [`LicenseManager::deactivate`] / [`LicenseManager::register_trial`]
+//! to talk to the server.
+//!
+//! See the README for the full request/response contract and offline
+//! behavior.
+
 pub mod cache;
 pub mod client;
 pub mod fingerprint;

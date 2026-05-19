@@ -202,7 +202,7 @@ mod tests {
 
         match cache.status() {
             LicenseStatus::Trial { days_remaining } => {
-                assert!(days_remaining >= 3 && days_remaining <= 4);
+                assert!((3..=4).contains(&days_remaining));
             }
             other => panic!("expected Trial, got {other:?}"),
         }
