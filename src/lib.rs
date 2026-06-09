@@ -180,9 +180,9 @@ impl LicenseManager {
                 if resp.expired == Some(true) || resp.days_remaining == 0 {
                     Ok(LicenseStatus::TrialExpired)
                 } else {
-                    Ok(LicenseStatus::Trial {
-                        days_remaining: resp.days_remaining,
-                    })
+                    // Derive hours from the cached expires_at for precision
+                    // rather than converting the server's day-granularity value.
+                    Ok(self.cache.status())
                 }
             }
             Err(Error::Network(msg)) => {

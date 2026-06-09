@@ -86,10 +86,8 @@ impl LicenseCache {
 
                 match expires {
                     Ok(exp) if now < exp => {
-                        let remaining = (exp - now).num_days().max(0) as u32;
-                        // At least 1 day remaining if not yet expired
-                        let remaining = if remaining == 0 { 1 } else { remaining };
-                        LicenseStatus::Trial { days_remaining: remaining }
+                        let remaining = (exp - now).num_hours().max(1) as u32;
+                        LicenseStatus::Trial { hours_remaining: remaining }
                     }
                     _ => LicenseStatus::TrialExpired,
                 }
@@ -201,8 +199,10 @@ mod tests {
         cache.save(&state).unwrap();
 
         match cache.status() {
-            LicenseStatus::Trial { days_remaining } => {
-                assert!((3..=4).contains(&days_remaining));
+            LicenseStatus::Trial { hours_remaining } => {
+                // 4 days = 96 hours; 3 days ago start means ~96h remaining
+                assert!(hours_remaining > 70 && hours_remaining <= 96,
+                    "expected ~96h remaining, got {hours_remaining}");
             }
             other => panic!("expected Trial, got {other:?}"),
         }

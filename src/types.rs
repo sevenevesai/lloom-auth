@@ -136,7 +136,7 @@ pub enum LicenseStatus {
         updates_until: String,
     },
     Trial {
-        days_remaining: u32,
+        hours_remaining: u32,
     },
     TrialExpired,
     Unlicensed,
