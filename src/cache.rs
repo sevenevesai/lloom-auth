@@ -98,7 +98,14 @@ impl LicenseCache {
 }
 
 /// Build a [`CachedLicense`] from a successful activate or validate response.
-pub fn cached_license_from_info(info: &crate::types::LicenseInfo) -> Option<CachedLicense> {
+/// `key` is the cleartext key the server just accepted — cached so background
+/// revalidation can run without re-prompting the user. Passing it here (rather
+/// than copying it in at call sites) makes it impossible for a refresh path to
+/// accidentally drop the key from the cache.
+pub fn cached_license_from_info(
+    info: &crate::types::LicenseInfo,
+    key: &str,
+) -> Option<CachedLicense> {
     Some(CachedLicense {
         key_prefix: info.key_prefix.clone(),
         cohort: info.cohort.clone().unwrap_or_default(),
@@ -107,6 +114,7 @@ pub fn cached_license_from_info(info: &crate::types::LicenseInfo) -> Option<Cach
         max_activations: info.max_activations.unwrap_or(3),
         active_activations: info.active_activations.unwrap_or(1),
         last_validated_at: Utc::now().to_rfc3339(),
+        key: Some(key.to_string()),
     })
 }
 
@@ -151,6 +159,7 @@ mod tests {
             max_activations: 3,
             active_activations: 1,
             last_validated_at: Utc::now().to_rfc3339(),
+            key: None,
         });
         cache.save(&state).unwrap();
 
@@ -177,6 +186,7 @@ mod tests {
             max_activations: 3,
             active_activations: 1,
             last_validated_at: Utc::now().to_rfc3339(),
+            key: None,
         });
         cache.save(&state).unwrap();
 

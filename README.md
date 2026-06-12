@@ -80,6 +80,7 @@ async fn main() -> Result<(), lloom_auth::Error> {
 | `mgr.status()` | Evaluate the local cache into a `LicenseStatus` — no network. |
 | `mgr.activate(key)` | Activate a license key on this machine. Caches the result. |
 | `mgr.validate(key)` | Re-validate with the server. On network failure, falls back to the cache. |
+| `mgr.revalidate()` | Background re-validation using the cached key — no-op within 24h of the last successful check. See "Offline behavior". |
 | `mgr.deactivate(key)` | Deactivate this machine's activation and clear the cache. |
 | `mgr.register_trial()` | Register or check a trial. Caches the trial info. |
 | `mgr.clear_cache()` | Wipe the local cache (logout / key re-entry). |
@@ -122,6 +123,26 @@ server response as JSON. On startup or when offline:
 
 `validate` and `register_trial` catch network errors and fall back to
 the cached status, so the app degrades gracefully when offline.
+
+### Background revalidation (`mgr.revalidate()`, 0.3+)
+
+Call `revalidate()` on app start and on a periodic tick. It contacts the
+server only when the cached license was last validated more than 24 hours
+ago (`REVALIDATE_AFTER_HOURS`); a successful check slides `valid_until`
+forward — a rolling offline grace window — and a server-side revocation
+clears the cache so the app locks. Network failure falls back to the
+cached status. A machine that stays offline past `valid_until` self-heals
+on its next online revalidation without the user re-entering the key.
+
+To make this possible, **the cleartext license key is stored in the local
+cache file from 0.3 on** (`CachedLicense.key`). What this means for trust:
+the key is the user's own credential, written to the user's own disk, with
+the same file permissions as the rest of the app's data — nothing new
+leaves the machine, and the only network calls remain the explicit
+activate/validate/deactivate/trial endpoints, now also reachable via the
+background `revalidate()` at most once per 24 hours. Caches written by
+0.2.x lack the stored key; they keep the old offline-grace-only behavior
+until the next manual activation rewrites the cache.
 
 <br>
 

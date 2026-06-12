@@ -108,6 +108,14 @@ pub struct CachedLicense {
     pub max_activations: u32,
     pub active_activations: u32,
     pub last_validated_at: String,
+    /// Cleartext license key, cached at activation so
+    /// [`LicenseManager::revalidate`](crate::LicenseManager::revalidate) can
+    /// re-contact the server in the background without asking the user again.
+    /// The user's own credential on the user's own disk — same trust domain
+    /// as the activation itself. `None` on caches written before 0.3, which
+    /// therefore never revalidate (offline-grace behavior only).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub key: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
