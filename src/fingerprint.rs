@@ -81,7 +81,9 @@ fn read_volume_serial() -> Result<String, crate::Error> {
 
 #[cfg(target_os = "macos")]
 fn macos_fingerprint() -> Result<String, crate::Error> {
-    let output = std::process::Command::new("/usr/bin/ioreg")
+    // ioreg lives in /usr/sbin, NOT /usr/bin (0.2.0 shipped the wrong path and
+    // failed on every Mac). Absolute path on purpose: no PATH lookup.
+    let output = std::process::Command::new("/usr/sbin/ioreg")
         .args(["-rd1", "-c", "IOPlatformExpertDevice"])
         .output()
         .map_err(|e| crate::Error::Fingerprint(format!("ioreg command failed: {e}")))?;
