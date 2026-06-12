@@ -2,7 +2,7 @@
 //!
 //! Async client for a JSON license API that follows the
 //! activate / validate / deactivate / trial-register pattern, plus a
-//! Windows machine fingerprint and a file-backed offline cache. Designed
+//! machine fingerprint (Windows + macOS) and a file-backed offline cache. Designed
 //! for Tauri apps but has no GUI coupling — just `reqwest` + `tokio` +
 //! `serde`.
 //!

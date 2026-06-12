@@ -1,19 +1,28 @@
-#[cfg(windows)]
+#[cfg(any(windows, target_os = "macos"))]
 use sha2::{Digest, Sha256};
 
-/// Generate a machine fingerprint: `sha256(MachineGuid || volume_serial)`.
+/// Generate a machine fingerprint.
 ///
-/// On Windows, reads `MachineGuid` from the registry and the volume serial
-/// of the system drive via `vol C:`. On other platforms, returns an error.
+/// - **Windows**: `sha256(MachineGuid || volume_serial)` — `MachineGuid` from
+///   the registry, volume serial of the system drive via `vol C:`. Stable
+///   across reboots; changes on OS reinstall.
+/// - **macOS**: `sha256(IOPlatformUUID)` — the hardware platform UUID from
+///   `ioreg -rd1 -c IOPlatformExpertDevice`. Tied to the logic board: stable
+///   across reboots AND OS reinstalls.
+/// - Other platforms: returns `Error::Fingerprint`.
 pub fn generate() -> Result<String, crate::Error> {
     #[cfg(windows)]
     {
         windows_fingerprint()
     }
-    #[cfg(not(windows))]
+    #[cfg(target_os = "macos")]
+    {
+        macos_fingerprint()
+    }
+    #[cfg(not(any(windows, target_os = "macos")))]
     {
         Err(crate::Error::Fingerprint(
-            "fingerprint generation is only supported on Windows".into(),
+            "fingerprint generation is only supported on Windows and macOS".into(),
         ))
     }
 }
@@ -70,12 +79,52 @@ fn read_volume_serial() -> Result<String, crate::Error> {
     ))
 }
 
-#[cfg(windows)]
+#[cfg(target_os = "macos")]
+fn macos_fingerprint() -> Result<String, crate::Error> {
+    let output = std::process::Command::new("/usr/bin/ioreg")
+        .args(["-rd1", "-c", "IOPlatformExpertDevice"])
+        .output()
+        .map_err(|e| crate::Error::Fingerprint(format!("ioreg command failed: {e}")))?;
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let uuid = parse_ioplatform_uuid(&stdout).ok_or_else(|| {
+        crate::Error::Fingerprint("could not parse IOPlatformUUID from ioreg output".into())
+    })?;
+
+    let mut hasher = Sha256::new();
+    hasher.update(uuid.as_bytes());
+    Ok(to_hex(&hasher.finalize()))
+}
+
+/// Extract the `IOPlatformUUID` value from
+/// `ioreg -rd1 -c IOPlatformExpertDevice` output, which contains a line like:
+///
+/// ```text
+///       "IOPlatformUUID" = "AA0E2D4C-1B2D-5E6A-8F9C-0123456789AB"
+/// ```
+///
+/// Compiled under `test` on all platforms so the parsing is covered by CI
+/// that never runs on a Mac.
+#[cfg(any(target_os = "macos", test))]
+fn parse_ioplatform_uuid(ioreg_output: &str) -> Option<&str> {
+    for line in ioreg_output.lines() {
+        let line = line.trim();
+        if let Some(rest) = line.strip_prefix("\"IOPlatformUUID\"") {
+            let value = rest.trim_start().strip_prefix('=')?.trim_start();
+            let value = value.strip_prefix('"')?;
+            let end = value.find('"')?;
+            return Some(&value[..end]);
+        }
+    }
+    None
+}
+
+#[cfg(any(windows, target_os = "macos", test))]
 fn to_hex(bytes: &[u8]) -> String {
     bytes.iter().map(|b| format!("{b:02x}")).collect()
 }
 
-#[cfg(all(test, windows))]
+#[cfg(test)]
 mod tests {
     use super::*;
 
@@ -87,8 +136,52 @@ mod tests {
     }
 
     #[test]
+    fn parses_ioplatform_uuid_from_realistic_output() {
+        let output = r#"+-o J293AP  <class IOPlatformExpertDevice, id 0x100000110, registered, matched, active, busy 0 (12 ms), retain 38>
+    {
+      "IOPlatformSerialNumber" = "C02XXXXXXXXX"
+      "IOPlatformUUID" = "AA0E2D4C-1B2D-5E6A-8F9C-0123456789AB"
+      "board-id" = <"Mac-XXXXXXXXXXXXXXXX">
+    }
+"#;
+        assert_eq!(
+            parse_ioplatform_uuid(output),
+            Some("AA0E2D4C-1B2D-5E6A-8F9C-0123456789AB")
+        );
+    }
+
+    #[test]
+    fn ioplatform_uuid_missing_returns_none() {
+        assert_eq!(parse_ioplatform_uuid(""), None);
+        assert_eq!(
+            parse_ioplatform_uuid("\"IOPlatformSerialNumber\" = \"C02X\""),
+            None
+        );
+    }
+
+    #[test]
+    fn ioplatform_uuid_malformed_value_returns_none() {
+        // Key present but value not a quoted string.
+        assert_eq!(parse_ioplatform_uuid("\"IOPlatformUUID\" = 42"), None);
+        assert_eq!(parse_ioplatform_uuid("\"IOPlatformUUID\""), None);
+    }
+
+    #[test]
+    fn does_not_match_other_quoted_keys() {
+        // strip_prefix leaves `Legacy" = ...`, which fails the `=` check →
+        // None rather than a false match on a longer key name.
+        let output = "\"IOPlatformUUIDLegacy\" = \"NOT-THIS-ONE\"";
+        assert_eq!(parse_ioplatform_uuid(output), None);
+    }
+}
+
+#[cfg(all(test, any(windows, target_os = "macos")))]
+mod platform_tests {
+    use super::*;
+
+    #[test]
     fn fingerprint_is_64_hex() {
-        let fp = generate().expect("fingerprint should succeed on Windows");
+        let fp = generate().expect("fingerprint should succeed on this platform");
         assert_eq!(fp.len(), 64);
         assert!(fp.chars().all(|c| c.is_ascii_hexdigit()));
     }

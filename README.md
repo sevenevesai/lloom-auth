@@ -97,8 +97,14 @@ On Windows, the fingerprint is `SHA-256(MachineGuid || volume_serial)`.
 from `vol C:`. The result is a deterministic 64-character hex string
 that stays stable across reboots but changes if the OS is reinstalled.
 
+On macOS (since 0.2.0), the fingerprint is `SHA-256(IOPlatformUUID)`.
+The platform UUID is read from
+`ioreg -rd1 -c IOPlatformExpertDevice` — it identifies the logic board,
+so it stays stable across reboots and OS reinstalls. Only the one-way
+hash ever leaves the machine; the raw UUID is not transmitted or stored.
+
 Other platforms are not yet supported — `generate()` returns
-`Error::Fingerprint` on non-Windows.
+`Error::Fingerprint` on Linux.
 
 <br>
 
@@ -121,8 +127,9 @@ the cached status, so the app degrades gracefully when offline.
 
 ## Known limitations
 
-- **Windows only** for fingerprinting. macOS / Linux support needs
-  platform-specific identifiers (IOPlatformUUID, machine-id).
+- **Windows and macOS only** for fingerprinting. Linux support needs a
+  platform identifier (`/etc/machine-id`) — add it when a Linux build
+  actually ships.
 - The offline cache trusts the clock. A user who sets their system time
   back can extend `valid_until` / `expires_at`. For a desktop app this
   is an acceptable tradeoff — clock manipulation is detectable on the
